@@ -161,8 +161,10 @@ def _refresh_job():
     """Обновление стока + авто-оценка только ВНОВЬ появившихся машин. Крутится
     в фоне, чтобы первичная полная загрузка не упиралась в таймаут gunicorn."""
     try:
-        summary = ingest.ingest()
-        if config.AUTO_VALUATE and not summary.get("unchanged"):
+        ingest.ingest()
+        # оцениваем все машины без оценки (новые + не оценённые ранее),
+        # даже если таблица не менялась — чтобы сток «дообсчитывался» сам
+        if config.AUTO_VALUATE:
             valuation.valuate_missing()
     except Exception as e:  # noqa: BLE001
         print(f"[refresh] ошибка: {e}", flush=True)
@@ -222,8 +224,8 @@ def _scheduler_loop():
     interval = config.POLL_INTERVAL_HOURS * 3600
     while True:
         try:
-            summary = ingest.ingest()
-            if config.AUTO_VALUATE and not summary.get("unchanged"):
+            ingest.ingest()
+            if config.AUTO_VALUATE:  # дообсчитываем необсчитанные каждый час
                 valuation.valuate_missing()
         except Exception as e:  # noqa: BLE001
             print(f"[scheduler] ошибка: {e}", flush=True)
