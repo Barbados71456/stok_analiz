@@ -1,0 +1,36 @@
+# Render Blueprint. Разворачивает приложение как веб-сервис.
+# Данные хранятся в общей базе проектов Альфы (Postgres alfa_collection),
+# в отдельной схеме stok_analiz — поэтому persistent disk не нужен.
+services:
+  - type: web
+    name: stok-analiz
+    runtime: python
+    plan: starter            # free-tier засыпает и теряет часовой опрос
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT
+    envVars:
+      # --- База: та же, что у проектов Альфы, схема stok_analiz ---
+      - key: DB_HOST
+        sync: false          # dpg-...oregon-postgres.render.com (как в Alfa)
+      - key: DB_NAME
+        sync: false          # alfa_collection
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_SCHEMA
+        value: "stok_analiz"
+      # --- Claude ---
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # --- Логика ---
+      - key: STORAGE_COST_PER_DAY
+        value: "500"
+      - key: POLL_INTERVAL_HOURS
+        value: "1"           # опрос таблицы и фиксация изменений раз в час
+      - key: AUTO_VALUATE
+        value: "1"
+      - key: ADMIN_TOKEN
+        sync: false

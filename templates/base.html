@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Авто-сток аналитик{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a href="{{ url_for('index') }}" class="brand">🚗 Авто-сток аналитик</a>
+    <nav>
+      <a href="{{ url_for('index') }}">Сток</a>
+      <a href="{{ url_for('changes') }}">История изменений</a>
+      <form method="post" action="{{ url_for('refresh') }}" class="inline">
+        {% if request.args.get('token') %}<input type="hidden" name="token" value="{{ request.args.get('token') }}">{% endif %}
+        <button class="btn btn-sm">↻ Обновить из таблицы</button>
+      </form>
+    </nav>
+  </div>
+</header>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div class="wrap">
+      {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<main class="wrap">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="wrap muted small">
+  Данные: гугл-таблица стока · оценка рынка: Claude + веб-поиск ·
+  расходы на хранение: {{ storage_cost|int }} ₽/сутки (настраивается через STORAGE_COST_PER_DAY)
+</footer>
+</body>
+</html>

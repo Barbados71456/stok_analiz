@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}История изменений{% endblock %}
+{% block content %}
+<h1>История изменений стока</h1>
+<p class="muted">Новые машины, снятия (вероятная продажа), изменения цены — детект по VIN при каждом заборе таблицы.</p>
+
+<table class="grid">
+  <thead><tr><th>Когда</th><th>Событие</th><th>Машина</th><th class="r">Было → Стало</th></tr></thead>
+  <tbody>
+  {% for c in rows %}
+    <tr>
+      <td class="small">{{ c.created_at|dt }}</td>
+      <td>
+        {% if c.ctype=='added' %}<span class="verdict v-success">＋ новая</span>
+        {% elif c.ctype=='removed' %}<span class="verdict v-danger">✕ снята</span>
+        {% elif c.ctype=='price_down' %}<span class="verdict v-success">↓ цена</span>
+        {% elif c.ctype=='price_up' %}<span class="verdict v-warn">↑ цена</span>
+        {% elif c.ctype=='readded' %}<span class="verdict v-muted">↺ вернулась</span>
+        {% else %}{{ c.ctype }}{% endif %}
+      </td>
+      <td><a href="{{ url_for('car', vin=c.vin) }}">{{ c.title }}</a></td>
+      <td class="r small">
+        {% if c.old_value %}{{ c.old_value|int|money }}{% endif %}
+        {% if c.old_value and c.new_value %} → {% endif %}
+        {% if c.new_value %}{{ c.new_value|int|money }}{% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4" class="muted center">Изменений пока нет.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ row.make_raw }} — анализ{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('index') }}" class="muted">← к стоку</a>
+
+<div class="cardhead">
+  <div>
+    <h1>{{ row.make_raw or row.brand }}</h1>
+    <div class="muted">{{ row.brand }} · {{ row.year or '?' }} · {{ row.region }}
+      {% if row.status=='removed' %}<span class="pill pill-critical">снята {{ row.removed_at|dt }}</span>{% endif %}
+    </div>
+    <div class="vin">VIN {{ row.vin }} · {{ row.address }}</div>
+    {% if row.url %}<a href="{{ row.url }}" target="_blank" rel="noopener">Объявление ТС →</a>{% endif %}
+  </div>
+  <div class="pricebox">
+    <div class="bigprice">{{ row.price|money }}</div>
+    <div class="muted small">цена в стоке</div>
+    <form method="post" action="{{ url_for('valuate_one', vin=row.vin) }}">
+      <button class="btn btn-sm">⚡ Пересчитать оценку</button>
+    </form>
+  </div>
+</div>
+
+<div class="cols">
+  <!-- ПОКУПАТЕЛЮ -->
+  <section class="panel">
+    <h2>🛒 Покупателю</h2>
+    <div class="verdict-big v-{{ row.buyer.verdict_class }}">{{ row.buyer.verdict }}</div>
+    <table class="kv">
+      <tr><td>Рыночная цена (чистый аналог)</td><td class="r">
+        {% if row.val %}{{ row.val.market_low|money }} – <b>{{ row.val.market_mid|money }}</b> – {{ row.val.market_high|money }}{% else %}<span class="muted">нет оценки</span>{% endif %}
+      </td></tr>
+      <tr><td>Скидка объявления к рынку</td><td class="r">
+        {% if row.buyer.discount_pct is not none %}<span class="{{ 'pos' if row.buyer.discount_pct>0 else 'neg' }}">{{ row.buyer.discount_pct }}%</span>{% else %}—{% endif %}
+      </td></tr>
+      <tr><td>Справедливая цена покупки (с учётом рисков)</td><td class="r"><b>{{ row.buyer.fair_buy_price|money }}</b></td></tr>
+      <tr><td>Юридический риск</td><td class="r"><span class="pill pill-{{ row.buyer.risk.level }}">{{ row.buyer.risk.label }}</span></td></tr>
+    </table>
+    <p class="note">{{ row.buyer.risk.note }}</p>
+    <ul class="reasons">
+      {% for rs in row.buyer.reasons %}<li>{{ rs }}</li>{% endfor %}
+    </ul>
+    {% if row.val and row.val.reasoning %}<p class="note"><b>Разбор рынка:</b> {{ row.val.reasoning }}</p>{% endif %}
+    {% if row.comparables %}
+      <h3>Найденные аналоги</h3>
+      <ul class="comps">
+        {% for c in row.comparables %}<li>{{ c.title }} — <b>{{ c.price|money }}</b> <span class="muted small">{{ c.source }}</span></li>{% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
+  <!-- ПРОДАВЦУ -->
+  <section class="panel">
+    <h2>📦 Владельцу (как продать быстрее)</h2>
+    <div class="verdict-big v-{{ row.seller.urgency_class }}">Срочность: {{ row.seller.urgency }}</div>
+    <table class="kv">
+      <tr><td>На стоянке</td><td class="r">{{ row.seller.days_on_stock if row.seller.days_on_stock is not none else '—' }} дн.</td></tr>
+      <tr><td>Потрачено на хранение</td><td class="r">{{ row.seller.storage_cost_accrued|money }}</td></tr>
+      <tr><td>Хранение в месяц</td><td class="r">{{ row.seller.storage_cost_per_month|money }}</td></tr>
+      <tr><td>Цена для продажи за ~30 дней</td><td class="r"><b>{{ row.seller.recommend_price_30d|money }}</b></td></tr>
+      <tr><td>Цена для продажи за ~60 дней</td><td class="r">{{ row.seller.recommend_price_60d|money }}</td></tr>
+    </table>
+    <ul class="reasons">
+      {% for rs in row.seller.recommendations %}<li>{{ rs }}</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+<div class="cols">
+  <section class="panel">
+    <h3>История цены</h3>
+    <table class="kv">
+      {% for h in history %}<tr><td>{{ h.observed_at|dt }}</td><td class="r">{{ h.price|money }}</td></tr>{% else %}<tr><td class="muted">нет данных</td></tr>{% endfor %}
+    </table>
+  </section>
+  <section class="panel">
+    <h3>События</h3>
+    <table class="kv">
+      {% for c in changes %}<tr><td>{{ c.created_at|dt }}</td><td>{{ c.ctype }} {{ c.old_value }}{% if c.new_value %} → {{ c.new_value }}{% endif %}</td></tr>{% else %}<tr><td class="muted">нет событий</td></tr>{% endfor %}
+    </table>
+  </section>
+</div>
+
+{% endblock %}

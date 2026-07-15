@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ stats.count }}</div><div class="lbl">машин в выборке</div></div>
+  <div class="stat"><div class="num">{{ stats.valued }}</div><div class="lbl">оценено</div></div>
+  <div class="stat good"><div class="num">{{ stats.buy_signals }}</div><div class="lbl">сигналов «брать»</div></div>
+  <div class="stat bad"><div class="num">{{ stats.banned }}</div><div class="lbl">с запретами</div></div>
+  <div class="stat"><div class="num">{{ (stats.total_price/1000000)|round(1) }}М</div><div class="lbl">суммарная цена, ₽</div></div>
+</div>
+
+<form method="get" class="filters">
+  <label>Регион
+    <select name="region" onchange="this.form.submit()">
+      <option value="">— все —</option>
+      {% for r in regions %}<option value="{{ r }}" {{ 'selected' if r==region }}>{{ r }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Бренд
+    <select name="brand" onchange="this.form.submit()">
+      <option value="">— все —</option>
+      {% for b in brands %}<option value="{{ b }}" {{ 'selected' if b==brand }}>{{ b }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Вердикт
+    <select name="verdict" onchange="this.form.submit()">
+      <option value="">— любой —</option>
+      {% for v in ['Сильно брать','Брать','Держать / торговаться','Переоценено / мимо','Избегать / только с юристом'] %}
+        <option value="{{ v }}" {{ 'selected' if v==verdict }}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Статус
+    <select name="show" onchange="this.form.submit()">
+      <option value="active" {{ 'selected' if show=='active' }}>в стоке</option>
+      <option value="removed" {{ 'selected' if show=='removed' }}>снятые/проданные</option>
+      <option value="all" {{ 'selected' if show=='all' }}>все</option>
+    </select>
+  </label>
+  <label>Сортировка
+    <select name="sort" onchange="this.form.submit()">
+      <option value="discount" {{ 'selected' if sort=='discount' }}>по скидке к рынку</option>
+      <option value="price" {{ 'selected' if sort=='price' }}>по цене</option>
+      <option value="days" {{ 'selected' if sort=='days' }}>по сроку на стоянке</option>
+    </select>
+  </label>
+  <form method="post" action="{{ url_for('valuate_all') }}" class="inline">
+    <button class="btn btn-sm">⚡ Оценить необсчитанные</button>
+  </form>
+</form>
+
+<table class="grid">
+  <thead>
+    <tr>
+      <th>Машина</th><th>Регион</th><th>Год</th>
+      <th class="r">Цена</th><th class="r">Рынок</th><th class="r">Скидка</th>
+      <th>Юрриски</th><th class="r">На стоянке</th><th>Вердикт</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ 'dim' if r.status=='removed' }}">
+      <td><a href="{{ url_for('car', vin=r.vin) }}" class="carlink">{{ r.make_raw or r.brand }}</a>
+          <div class="vin">{{ r.vin }}</div></td>
+      <td>{{ r.region }}</td>
+      <td>{{ r.year or '—' }}{% if r.year_flag=='suspicious' %}<span title="год под вопросом">⚠️</span>{% endif %}</td>
+      <td class="r">{{ r.price|money }}</td>
+      <td class="r">{% if r.val %}{{ r.val.market_mid|money }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="r">
+        {% if r.buyer.discount_pct is not none %}
+          <span class="{{ 'pos' if r.buyer.discount_pct>0 else 'neg' }}">{{ r.buyer.discount_pct }}%</span>
+        {% else %}—{% endif %}
+      </td>
+      <td><span class="pill pill-{{ r.buyer.risk.level }}">{{ r.buyer.risk.label }}</span></td>
+      <td class="r">{{ r.buyer.days_on_stock if r.buyer.days_on_stock is not none else '—' }}{% if r.buyer.days_on_stock is not none %} дн.{% endif %}</td>
+      <td><span class="verdict v-{{ r.buyer.verdict_class }}">{{ r.buyer.verdict }}</span></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="muted center">Пусто. Нажмите «Обновить из таблицы».</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if last_snap %}<p class="muted small">Последний забор таблицы: {{ last_snap.fetched_at|dt }} · строк: {{ last_snap.row_count }}</p>{% endif %}
+{% endblock %}
