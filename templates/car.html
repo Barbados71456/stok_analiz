@@ -25,7 +25,7 @@
 {% if listing and listing.images %}
   <div class="gallery">
     {% for img in listing.images %}
-      <img src="{{ img }}" loading="lazy" alt="фото ТС" class="thumb" data-idx="{{ loop.index0 }}">
+      <img src="{{ url_for('img_proxy', u=img) }}" loading="lazy" alt="фото ТС" class="thumb" data-idx="{{ loop.index0 }}">
     {% endfor %}
   </div>
 {% elif listing and listing.error %}

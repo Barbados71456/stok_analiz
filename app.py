@@ -3,8 +3,11 @@
 import threading
 import time
 from datetime import datetime
+from urllib.parse import urlparse
 
-from flask import (Flask, abort, redirect, render_template, request, url_for, flash)
+import requests
+from flask import (Flask, Response, abort, redirect, render_template, request,
+                   url_for, flash)
 
 import config
 import db
@@ -149,6 +152,30 @@ def car(vin):
 def changes():
     rows = db.query("SELECT * FROM changes ORDER BY id DESC LIMIT 300")
     return render_template("changes.html", rows=rows)
+
+
+# хосты фото объявлений — их проксируем, чтобы браузер грузил с нашего домена
+# (teletype/ltdfoto блокируют хотлинк по Referer, поэтому напрямую фото не видно)
+_IMG_HOSTS = ("teletype.in", "telegra.ph", "ltdfoto.ru", "graph.org", "telegra-ph.b-cdn.net")
+
+
+@app.route("/img")
+def img_proxy():
+    u = request.args.get("u", "")
+    host = (urlparse(u).hostname or "").lower()
+    ok_host = any(host == h or host.endswith("." + h) for h in _IMG_HOSTS)
+    if not u.startswith(("http://", "https://")) or not ok_host:
+        abort(400)
+    try:
+        r = requests.get(u, timeout=20, headers={"User-Agent": scrape._UA["User-Agent"]})
+        r.raise_for_status()
+    except Exception:  # noqa: BLE001
+        abort(502)
+    ct = (r.headers.get("content-type") or "image/jpeg").split(";")[0].strip()
+    if not ct.startswith("image/"):
+        ct = "image/jpeg"
+    return Response(r.content, content_type=ct,
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.route("/progress")
