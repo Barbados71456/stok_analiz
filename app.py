@@ -92,10 +92,21 @@ def index():
     brands = [r["brand"] for r in db.query(
         "SELECT DISTINCT brand FROM listings WHERE brand IS NOT NULL ORDER BY brand")]
 
+    # группировка по регионам: регионы с большим стоком сверху
+    from collections import OrderedDict
+    grouped = OrderedDict()
+    for r in rows:
+        grouped.setdefault(r.get("region") or "—", []).append(r)
+    # (регион, машины, суммарная_цена); регионы с большим стоком сверху
+    groups = [(name, cars, sum(c.get("price") or 0 for c in cars))
+              for name, cars in grouped.items()]
+    groups.sort(key=lambda g: (-len(g[1]), g[0]))
+
     stats = _dashboard_stats(rows)
     last_snap = db.query_one("SELECT * FROM snapshots ORDER BY id DESC LIMIT 1")
 
-    return render_template("index.html", rows=rows, regions=regions, brands=brands,
+    return render_template("index.html", rows=rows, groups=groups,
+                           regions=regions, brands=brands,
                            region=region, brand=brand, verdict=verdict, show=show,
                            sort=sort, stats=stats, last_snap=last_snap,
                            polza_configured=bool(config.POLZA_AI_API_KEY),

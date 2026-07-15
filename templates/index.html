@@ -57,38 +57,43 @@
   </form>
 </form>
 
-<table class="grid">
-  <thead>
-    <tr>
-      <th>Машина</th><th>Регион</th><th>Год</th><th class="r">Пробег</th>
-      <th class="r">Цена</th><th class="r">Рынок</th><th class="r">Скидка</th>
-      <th>Юрриски</th><th class="r">На стоянке</th><th>Вердикт</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for r in rows %}
-    <tr class="{{ 'dim' if r.status=='removed' }}">
-      <td><a href="{{ url_for('car', vin=r.vin) }}" class="carlink">{{ r.make_raw or r.brand }}</a>
-          <div class="vin">{{ r.vin }}</div></td>
-      <td>{{ r.region }}</td>
-      <td>{{ r.year or '—' }}{% if r.year_flag=='suspicious' %}<span title="год под вопросом">⚠️</span>{% endif %}</td>
-      <td class="r">{% if r.val and r.val.mileage_km %}{{ '{:,}'.format(r.val.mileage_km).replace(',', ' ') }} км{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="r">{{ r.price|money }}</td>
-      <td class="r">{% if r.val %}{{ r.val.market_mid|money }}{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="r">
-        {% if r.buyer.discount_pct is not none %}
-          <span class="{{ 'pos' if r.buyer.discount_pct>0 else 'neg' }}">{{ r.buyer.discount_pct }}%</span>
-        {% else %}—{% endif %}
-      </td>
-      <td><span class="pill pill-{{ r.buyer.risk.level }}">{{ r.buyer.risk.label }}</span></td>
-      <td class="r">{{ r.buyer.days_on_stock if r.buyer.days_on_stock is not none else '—' }}{% if r.buyer.days_on_stock is not none %} дн.{% endif %}</td>
-      <td><span class="verdict v-{{ r.buyer.verdict_class }}">{{ r.buyer.verdict }}</span></td>
-    </tr>
-  {% else %}
-    <tr><td colspan="10" class="muted center">Пусто. Нажмите «Обновить из таблицы».</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% for region_name, cars, total in groups %}
+  <div class="region-h">
+    <span class="region-name">📍 {{ region_name }}</span>
+    <span class="region-cnt">{{ cars|length }} шт · {{ total|money }}</span>
+  </div>
+  <table class="grid">
+    <thead>
+      <tr>
+        <th>Машина</th><th>Год</th><th class="r">Пробег</th>
+        <th class="r">Цена</th><th class="r">Рынок</th><th class="r">Скидка</th>
+        <th>Юрриски</th><th class="r">На стоянке</th><th>Вердикт</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in cars %}
+      <tr class="{{ 'dim' if r.status=='removed' }}">
+        <td><a href="{{ url_for('car', vin=r.vin) }}" class="carlink">{{ r.make_raw or r.brand }}</a>
+            <div class="vin">{{ r.vin }}</div></td>
+        <td>{{ r.year or '—' }}{% if r.year_flag=='suspicious' %}<span title="год под вопросом">⚠️</span>{% endif %}</td>
+        <td class="r">{% if r.val and r.val.mileage_km %}{{ '{:,}'.format(r.val.mileage_km).replace(',', ' ') }} км{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="r">{{ r.price|money }}</td>
+        <td class="r">{% if r.val %}{{ r.val.market_mid|money }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="r">
+          {% if r.buyer.discount_pct is not none %}
+            <span class="{{ 'pos' if r.buyer.discount_pct>0 else 'neg' }}">{{ r.buyer.discount_pct }}%</span>
+          {% else %}—{% endif %}
+        </td>
+        <td><span class="pill pill-{{ r.buyer.risk.level }}">{{ r.buyer.risk.label }}</span></td>
+        <td class="r">{{ r.buyer.days_on_stock if r.buyer.days_on_stock is not none else '—' }}{% if r.buyer.days_on_stock is not none %} дн.{% endif %}</td>
+        <td><span class="verdict v-{{ r.buyer.verdict_class }}">{{ r.buyer.verdict }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted center">Пусто. Нажмите «Обновить из таблицы».</p>
+{% endfor %}
 
 {% if last_snap %}<p class="muted small">Последний забор таблицы: {{ last_snap.fetched_at|dt }} · строк: {{ last_snap.row_count }}</p>{% endif %}
 

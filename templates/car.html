@@ -25,7 +25,7 @@
 {% if listing and listing.images %}
   <div class="gallery">
     {% for img in listing.images %}
-      <a href="{{ img }}" target="_blank" rel="noopener"><img src="{{ img }}" loading="lazy" alt="фото ТС"></a>
+      <img src="{{ img }}" loading="lazy" alt="фото ТС" class="thumb" data-idx="{{ loop.index0 }}">
     {% endfor %}
   </div>
 {% elif listing and listing.error %}
@@ -99,5 +99,45 @@
     </table>
   </section>
 </div>
+
+{% if listing and listing.images %}
+<div id="lightbox" class="lightbox" aria-hidden="true">
+  <span class="lb-btn lb-close" title="Закрыть (Esc)">✕</span>
+  <span class="lb-btn lb-prev" title="Назад (←)">‹</span>
+  <img id="lb-img" src="" alt="фото ТС">
+  <span class="lb-btn lb-next" title="Вперёд (→)">›</span>
+  <div class="lb-counter"></div>
+</div>
+<script>
+(function () {
+  var imgs = Array.prototype.map.call(document.querySelectorAll('.gallery .thumb'),
+                                      function (t) { return t.src; });
+  var lb = document.getElementById('lightbox');
+  var lbImg = document.getElementById('lb-img');
+  var counter = lb.querySelector('.lb-counter');
+  var idx = 0;
+  function show(i) {
+    idx = (i + imgs.length) % imgs.length;
+    lbImg.src = imgs[idx];
+    counter.textContent = (idx + 1) + ' / ' + imgs.length;
+  }
+  function open(i) { show(i); lb.classList.add('on'); lb.setAttribute('aria-hidden', 'false'); }
+  function close() { lb.classList.remove('on'); lb.setAttribute('aria-hidden', 'true'); lbImg.src = ''; }
+  document.querySelectorAll('.gallery .thumb').forEach(function (t) {
+    t.addEventListener('click', function () { open(+t.dataset.idx); });
+  });
+  lb.querySelector('.lb-close').addEventListener('click', close);
+  lb.querySelector('.lb-prev').addEventListener('click', function (e) { e.stopPropagation(); show(idx - 1); });
+  lb.querySelector('.lb-next').addEventListener('click', function (e) { e.stopPropagation(); show(idx + 1); });
+  lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (!lb.classList.contains('on')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') show(idx - 1);
+    else if (e.key === 'ArrowRight') show(idx + 1);
+  });
+})();
+</script>
+{% endif %}
 
 {% endblock %}
