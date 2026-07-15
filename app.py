@@ -10,6 +10,7 @@ import config
 import db
 import ingest
 import scoring
+import scrape
 import valuation
 
 app = Flask(__name__)
@@ -97,6 +98,8 @@ def index():
     return render_template("index.html", rows=rows, regions=regions, brands=brands,
                            region=region, brand=brand, verdict=verdict, show=show,
                            sort=sort, stats=stats, last_snap=last_snap,
+                           polza_configured=bool(config.POLZA_AI_API_KEY),
+                           val_run=valuation.LAST_RUN,
                            storage_cost=config.STORAGE_COST_PER_DAY)
 
 
@@ -125,14 +128,33 @@ def car(vin):
         "SELECT * FROM price_history WHERE vin=? ORDER BY observed_at", (vin,))
     changes = db.query(
         "SELECT * FROM changes WHERE vin=? ORDER BY id DESC", (vin,))
+    # живой разбор страницы ТС для показа фото (пробег/повреждения на них)
+    listing = scrape.fetch_listing(row.get("url"))
     return render_template("car.html", row=row, history=history, changes=changes,
-                           storage_cost=config.STORAGE_COST_PER_DAY)
+                           listing=listing, storage_cost=config.STORAGE_COST_PER_DAY)
 
 
 @app.route("/changes")
 def changes():
     rows = db.query("SELECT * FROM changes ORDER BY id DESC LIMIT 300")
     return render_template("changes.html", rows=rows)
+
+
+@app.route("/status")
+def status():
+    """Диагностика: бэкенд БД, счётчики, настроен ли Polza, итог последней оценки."""
+    from flask import jsonify
+    listings = db.query_one("SELECT COUNT(*) c FROM listings")["c"]
+    valued = db.query_one("SELECT COUNT(*) c FROM valuations")["c"]
+    return jsonify({
+        "backend": db.backend_info(),
+        "listings": listings,
+        "valued": valued,
+        "polza_configured": bool(config.POLZA_AI_API_KEY),
+        "polza_model": config.POLZA_MODEL,
+        "poll_interval_hours": config.POLL_INTERVAL_HOURS,
+        "last_valuation_run": valuation.LAST_RUN,
+    })
 
 
 def _refresh_job():

@@ -22,6 +22,16 @@
   </div>
 </div>
 
+{% if listing and listing.images %}
+  <div class="gallery">
+    {% for img in listing.images %}
+      <a href="{{ img }}" target="_blank" rel="noopener"><img src="{{ img }}" loading="lazy" alt="фото ТС"></a>
+    {% endfor %}
+  </div>
+{% elif listing and listing.error %}
+  <p class="muted small">Фото со страницы объявления недоступны: {{ listing.error }}</p>
+{% endif %}
+
 <div class="cols">
   <!-- ПОКУПАТЕЛЮ -->
   <section class="panel">

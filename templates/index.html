@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if not polza_configured %}
+  <div class="flash" style="border-left-color:var(--bad)">⚠️ Оценка не настроена: задайте переменную окружения <b>POLZA_AI_API_KEY</b> на Render, иначе рыночная стоимость и пробег считаться не будут.</div>
+{% elif val_run and val_run.last_error %}
+  <div class="flash" style="border-left-color:var(--warn)">⚠️ Последний прогон оценки: обсчитано {{ val_run.valued }}, ошибок {{ val_run.errors }}. Последняя ошибка: {{ val_run.last_error }}</div>
+{% endif %}
+
 <div class="stats">
   <div class="stat"><div class="num">{{ stats.count }}</div><div class="lbl">машин в выборке</div></div>
   <div class="stat"><div class="num">{{ stats.valued }}</div><div class="lbl">оценено</div></div>

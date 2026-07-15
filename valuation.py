@@ -16,6 +16,9 @@ import scrape
 
 _client = None
 
+# Итог последнего прогона оценки — чтобы ошибки фона были видны в UI/через /status.
+LAST_RUN = {"valued": 0, "errors": 0, "last_error": None, "at": None}
+
 
 def client():
     global _client
@@ -172,15 +175,18 @@ def valuate_missing(limit=None):
     rows = db.query(
         "SELECT l.* FROM listings l LEFT JOIN valuations v ON v.vin=l.vin "
         "WHERE l.status='active' AND v.vin IS NULL")
-    done, errors = 0, 0
+    done, errors, last_error = 0, 0, None
     for row in rows:
         try:
             v = valuate_row(row)
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             errors += 1
+            last_error = str(e)
             continue
         save_valuation(row["vin"], input_hash(row), v)
         done += 1
         if limit and done >= limit:
             break
-    return {"valued": done, "errors": errors}
+    LAST_RUN.update(valued=done, errors=errors, last_error=last_error,
+                    at=datetime.utcnow().isoformat())
+    return {"valued": done, "errors": errors, "last_error": last_error}

@@ -77,6 +77,8 @@ table.grid{width:100%;border-collapse:collapse;background:var(--panel);
 .pricebox{text-align:right}
 .bigprice{font-size:26px;font-weight:700}
 
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.gallery img{width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
 .verdict-big{display:inline-block;padding:6px 14px;border-radius:8px;font-weight:700;font-size:16px;margin-bottom:12px}
