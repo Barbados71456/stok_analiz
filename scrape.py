@@ -3,6 +3,7 @@
 На этих страницах пробег и повреждения обычно НЕ в тексте, а на фотографиях
 (одометр, кузов) — поэтому главная ценность здесь фото, которые дальше уходят
 в vision-модель для чтения пробега и оценки состояния."""
+import base64
 import html
 import re
 from urllib.parse import urljoin
@@ -46,3 +47,36 @@ def fetch_listing(url, max_images=8):
     text = text[:2000]
 
     return {"text": text, "images": images, "error": None}
+
+
+_CT_BY_EXT = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+              "webp": "image/webp"}
+
+
+def download_images_b64(urls, max_images=6, max_total_bytes=4_000_000,
+                        max_one_bytes=2_500_000):
+    """Скачивает фото САМ (с нашим UA) и возвращает data-URI (base64).
+
+    Так модель не качает URL со стороннего хоста (Anthropic-фетчер их не достаёт
+    и валит запрос 400) — байты отдаём инлайном. Пропускаем недоступные/огромные."""
+    out, total = [], 0
+    for u in urls:
+        try:
+            r = requests.get(u, timeout=20, headers=_UA)
+            r.raise_for_status()
+            data = r.content
+        except Exception:  # noqa: BLE001
+            continue
+        if not data or len(data) > max_one_bytes:
+            continue
+        ct = (r.headers.get("content-type") or "").split(";")[0].strip().lower()
+        if not ct.startswith("image/"):
+            ext = u.rsplit(".", 1)[-1].split("?")[0].lower()
+            ct = _CT_BY_EXT.get(ext, "image/jpeg")
+        if total + len(data) > max_total_bytes:
+            break
+        total += len(data)
+        out.append(f"data:{ct};base64,{base64.b64encode(data).decode()}")
+        if len(out) >= max_images:
+            break
+    return out

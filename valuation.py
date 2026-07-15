@@ -90,7 +90,8 @@ def valuate_row(row):
         raise RuntimeError("оценка не настроена: задайте POLZA_AI_API_KEY")
 
     listing = scrape.fetch_listing(row.get("url"))
-    images = listing["images"]
+    # скачиваем фото сами и шлём как base64 — модель не тянет URL со стороннего хоста
+    images = scrape.download_images_b64(listing["images"])
 
     prompt_text = (
         f"Оцени машину из стока:\n"
