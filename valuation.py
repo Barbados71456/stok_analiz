@@ -21,7 +21,7 @@ LAST_RUN = {"valued": 0, "errors": 0, "last_error": None, "at": None}
 
 # Живой прогресс текущего прогона оценки (для индикатора на дашборде).
 PROGRESS = {"running": False, "total": 0, "done": 0, "errors": 0,
-            "current": None, "current_vin": None,
+            "current": None, "current_vin": None, "last_error": None,
             "started_at": None, "finished_at": None}
 
 
@@ -196,8 +196,10 @@ def valuate_missing(limit=None):
                 v = valuate_row(row)
             except Exception as e:  # noqa: BLE001
                 errors += 1
-                last_error = str(e)
+                last_error = f"{row['vin']} ({title}): {type(e).__name__}: {e}"
                 PROGRESS["errors"] = errors
+                PROGRESS["last_error"] = last_error
+                print(f"[valuate] ОШИБКА {last_error}", flush=True)  # видно в логах Render
                 continue
             save_valuation(row["vin"], input_hash(row), v)
             done += 1
