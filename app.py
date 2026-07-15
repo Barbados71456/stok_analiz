@@ -154,27 +154,48 @@ def changes():
     return render_template("changes.html", rows=rows)
 
 
-# хосты фото объявлений — их проксируем, чтобы браузер грузил с нашего домена
-# (teletype/ltdfoto блокируют хотлинк по Referer, поэтому напрямую фото не видно)
-_IMG_HOSTS = ("teletype.in", "telegra.ph", "ltdfoto.ru", "graph.org", "telegra-ph.b-cdn.net")
+def _host_is_public(host):
+    """True, если хост резолвится только в публичные адреса (защита от SSRF во
+    внутреннюю сеть). Фото объявлений лежат на разных хостингах, поэтому белый
+    список не годится — проверяем сам адрес."""
+    import ipaddress
+    import socket
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:  # noqa: BLE001
+        return False
+    for info in infos:
+        try:
+            addr = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+            return False
+    return True
 
 
 @app.route("/img")
 def img_proxy():
+    """Прокси фото объявлений: качаем на сервере и отдаём с нашего домена
+    (хостинги блокируют хотлинк по Referer). Пускаем любой публичный хост."""
     u = request.args.get("u", "")
     host = (urlparse(u).hostname or "").lower()
-    ok_host = any(host == h or host.endswith("." + h) for h in _IMG_HOSTS)
-    if not u.startswith(("http://", "https://")) or not ok_host:
+    if not u.startswith(("http://", "https://")) or not _host_is_public(host):
         abort(400)
     try:
-        r = requests.get(u, timeout=20, headers={"User-Agent": scrape._UA["User-Agent"]})
+        r = requests.get(u, timeout=20, stream=True,
+                         headers={"User-Agent": scrape._UA["User-Agent"]})
         r.raise_for_status()
+        data = r.content  # requests ограничит по таймауту; фото небольшие
     except Exception:  # noqa: BLE001
         abort(502)
     ct = (r.headers.get("content-type") or "image/jpeg").split(";")[0].strip()
     if not ct.startswith("image/"):
-        ct = "image/jpeg"
-    return Response(r.content, content_type=ct,
+        abort(415)
+    return Response(data, content_type=ct,
                     headers={"Cache-Control": "public, max-age=86400"})
 
 

@@ -25,7 +25,8 @@
 {% if listing and listing.images %}
   <div class="gallery">
     {% for img in listing.images %}
-      <img src="{{ url_for('img_proxy', u=img) }}" loading="lazy" alt="фото ТС" class="thumb" data-idx="{{ loop.index0 }}">
+      <img src="{{ img }}" data-proxy="{{ url_for('img_proxy', u=img) }}"
+           loading="lazy" alt="фото ТС" class="thumb" data-idx="{{ loop.index0 }}">
     {% endfor %}
   </div>
 {% elif listing and listing.error %}
@@ -110,15 +111,29 @@
 </div>
 <script>
 (function () {
-  var imgs = Array.prototype.map.call(document.querySelectorAll('.gallery .thumb'),
-                                      function (t) { return t.src; });
+  // фото грузим напрямую, при ошибке (хотлинк-блок) — через наш прокси
+  var thumbs = document.querySelectorAll('.gallery .thumb');
+  var imgs = Array.prototype.map.call(thumbs, function (t) {
+    return { direct: t.getAttribute('src'), proxy: t.dataset.proxy };
+  });
+  thumbs.forEach(function (t) {
+    t.addEventListener('error', function () {
+      if (t.dataset.fb) return;               // уже пробовали прокси
+      t.dataset.fb = '1'; t.src = t.dataset.proxy;
+    });
+  });
   var lb = document.getElementById('lightbox');
   var lbImg = document.getElementById('lb-img');
   var counter = lb.querySelector('.lb-counter');
   var idx = 0;
+  lbImg.addEventListener('error', function () {
+    if (lbImg.dataset.fb) return;
+    lbImg.dataset.fb = '1'; lbImg.src = imgs[idx].proxy;
+  });
   function show(i) {
     idx = (i + imgs.length) % imgs.length;
-    lbImg.src = imgs[idx];
+    lbImg.dataset.fb = '';
+    lbImg.src = imgs[idx].direct;
     counter.textContent = (idx + 1) + ' / ' + imgs.length;
   }
   function open(i) { show(i); lb.classList.add('on'); lb.setAttribute('aria-hidden', 'false'); }
