@@ -12,6 +12,7 @@ from datetime import datetime
 
 import config
 import db
+import scrape
 
 _client = None
 
@@ -25,26 +26,33 @@ def client():
 
 
 def input_hash(row):
-    key = f"{row['brand']}|{row['year']}|{row['region']}|{row['price']}|{row['make_raw']}"
+    key = f"{row['brand']}|{row['year']}|{row['region']}|{row['price']}|{row['make_raw']}|{row.get('url')}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
 SYSTEM = (
     "Ты — эксперт по оценке подержанных автомобилей на российском вторичном рынке "
     "(Avito, Auto.ru, Дром). Тебе дают карточку машины из стока залогового/"
-    "арестованного авто. Оцени справедливую рыночную стоимость ЧИСТОГО аналога "
-    "(без юридических обременений) по своим знаниям о рынке: марка, модель, год, регион. "
-    "Учитывай регион (Москва/СПб дороже, регионы дешевле) и возраст. Оцени ликвидность — "
-    "за сколько дней такая машина в среднем продаётся.\n\n"
-    "ВАЖНО: цена — для чистого аналога, БЕЗ учёта запретов (юридические риски учитываются "
-    "отдельно в приложении, не занижай из-за них рыночную цену).\n\n"
+    "арестованного авто И ФОТОГРАФИИ этой машины со страницы объявления.\n\n"
+    "ОБЯЗАТЕЛЬНО по фотографиям определи:\n"
+    "1) ПРОБЕГ — найди фото приборной панели/одометра и считай пробег в км. Если одометра "
+    "на фото нет — оцени по состоянию и укажи это; поле mileage_km тогда приблизительное.\n"
+    "2) СОСТОЯНИЕ и ПОВРЕЖДЕНИЯ — вмятины, царапины, коррозия, сколы, состояние салона, "
+    "следы ДТП. Кратко опиши в поле condition.\n\n"
+    "Затем оцени справедливую рыночную стоимость аналога БЕЗ юридических обременений, "
+    "с поправкой на реальный пробег и состояние по фото. Учитывай регион (Москва/СПб дороже) "
+    "и возраст. Оцени ликвидность — за сколько дней продаётся такая машина.\n\n"
+    "ВАЖНО: юридические запреты (суд/ФССП) в рыночную цену НЕ закладывай — они учитываются "
+    "отдельно в приложении.\n\n"
     "Верни СТРОГО один JSON-объект без markdown и текста вокруг:\n"
     "{\n"
+    '  "mileage_km": целое или null (пробег по фото одометра, км),\n'
+    '  "condition": строка (состояние и повреждения по фото, 1-3 предложения),\n'
     '  "market_low": целое (руб),\n'
-    '  "market_mid": целое (руб, наиболее вероятная цена),\n'
+    '  "market_mid": целое (руб, наиболее вероятная цена с учётом пробега и состояния),\n'
     '  "market_high": целое (руб),\n'
     '  "days_to_sell": целое (среднее число дней до продажи),\n'
-    '  "reasoning": строка (2-4 предложения обоснования),\n'
+    '  "reasoning": строка (2-4 предложения: как пробег и состояние повлияли на оценку),\n'
     '  "comparables": [ {"title": строка, "price": целое, "source": строка} ]\n'
     "}"
 )
@@ -58,28 +66,58 @@ def _extract_json(text):
     return json.loads(m.group(0))
 
 
+def _int_or_none(v):
+    try:
+        return int(v) if v is not None else None
+    except (ValueError, TypeError):
+        return None
+
+
 def valuate_row(row):
-    """Один запрос к Polza.ai. Возвращает dict с оценкой."""
+    """Один запрос к Polza.ai (vision). Скрейпит ссылку ТС, шлёт фото модели,
+    та читает пробег/повреждения и оценивает рынок с поправкой на них."""
     if not config.POLZA_AI_API_KEY:
         raise RuntimeError("оценка не настроена: задайте POLZA_AI_API_KEY")
-    prompt = (
-        f"Оцени рыночную стоимость машины:\n"
+
+    listing = scrape.fetch_listing(row.get("url"))
+    images = listing["images"]
+
+    prompt_text = (
+        f"Оцени машину из стока:\n"
         f"- Марка/модель: {row['make_raw']}\n"
         f"- Бренд: {row['brand']}\n"
         f"- Год выпуска: {row['year']}\n"
         f"- Регион: {row['region']}\n"
         f"- Цена продажи в стоке: {row['price']} руб.\n"
-        f"Верни JSON по схеме."
     )
+    if listing.get("text"):
+        prompt_text += f"\nТекст со страницы объявления:\n{listing['text'][:1200]}\n"
+    if images:
+        prompt_text += (
+            f"\nНиже {len(images)} фото машины со страницы объявления. Считай пробег с "
+            f"одометра и оцени повреждения/состояние. Верни JSON по схеме."
+        )
+    else:
+        prompt_text += (
+            "\nФото со страницы получить не удалось — оцени по данным карточки, "
+            "mileage_km = null, в condition укажи 'фото недоступны'. Верни JSON по схеме."
+        )
+
+    content = [{"type": "text", "text": prompt_text}]
+    for u in images:
+        content.append({"type": "image_url", "image_url": {"url": u}})
+
     resp = client().chat.completions.create(
         model=config.POLZA_MODEL,
         max_tokens=1500,
         messages=[{"role": "system", "content": SYSTEM},
-                  {"role": "user", "content": prompt}],
+                  {"role": "user", "content": content}],
     )
     text = resp.choices[0].message.content
     data = _extract_json(text)
     return {
+        "mileage_km": _int_or_none(data.get("mileage_km")),
+        "condition": str(data.get("condition", "")),
         "market_low": int(data["market_low"]),
         "market_mid": int(data["market_mid"]),
         "market_high": int(data["market_high"]),
@@ -94,16 +132,18 @@ def save_valuation(vin, ih, v):
     db.execute(
         """INSERT INTO valuations
            (vin,input_hash,market_low,market_mid,market_high,days_to_sell,
-            reasoning,comparables,model,created_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?)
+            mileage_km,condition,reasoning,comparables,model,created_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(vin) DO UPDATE SET
              input_hash=excluded.input_hash, market_low=excluded.market_low,
              market_mid=excluded.market_mid, market_high=excluded.market_high,
-             days_to_sell=excluded.days_to_sell, reasoning=excluded.reasoning,
+             days_to_sell=excluded.days_to_sell, mileage_km=excluded.mileage_km,
+             condition=excluded.condition, reasoning=excluded.reasoning,
              comparables=excluded.comparables, model=excluded.model,
              created_at=excluded.created_at""",
         (vin, ih, v["market_low"], v["market_mid"], v["market_high"], v["days_to_sell"],
-         v["reasoning"], v["comparables"], v["model"], datetime.utcnow().isoformat()),
+         v.get("mileage_km"), v.get("condition", ""), v["reasoning"], v["comparables"],
+         v["model"], datetime.utcnow().isoformat()),
     )
 
 

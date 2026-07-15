@@ -27,7 +27,12 @@
   <section class="panel">
     <h2>🛒 Покупателю</h2>
     <div class="verdict-big v-{{ row.buyer.verdict_class }}">{{ row.buyer.verdict }}</div>
+    <div class="mileagebox">
+      <span class="mi-label">Пробег по фото</span>
+      <span class="mi-val">{% if row.val and row.val.mileage_km %}{{ '{:,}'.format(row.val.mileage_km).replace(',', ' ') }} км{% elif row.val %}не виден на фото{% else %}нет оценки{% endif %}</span>
+    </div>
     <table class="kv">
+      {% if row.val and row.val.condition %}<tr><td>Состояние / повреждения (по фото)</td><td>{{ row.val.condition }}</td></tr>{% endif %}
       <tr><td>Рыночная цена (чистый аналог)</td><td class="r">
         {% if row.val %}{{ row.val.market_low|money }} – <b>{{ row.val.market_mid|money }}</b> – {{ row.val.market_high|money }}{% else %}<span class="muted">нет оценки</span>{% endif %}
       </td></tr>

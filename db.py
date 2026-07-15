@@ -63,12 +63,20 @@ CREATE TABLE IF NOT EXISTS valuations (
     market_mid    INTEGER,
     market_high   INTEGER,
     days_to_sell  INTEGER,
+    mileage_km    INTEGER,
+    condition     TEXT,
     reasoning     TEXT,
     comparables   TEXT,
     model         TEXT,
     created_at    TEXT
 );
 """
+
+# Идемпотентные миграции для уже существующих таблиц (добавленные позже колонки).
+_MIGRATIONS = [
+    "ALTER TABLE valuations ADD COLUMN mileage_km INTEGER",
+    "ALTER TABLE valuations ADD COLUMN condition TEXT",
+]
 
 # ---------------- Postgres (пул соединений) ----------------
 
@@ -117,6 +125,9 @@ def _pg_init():
             cur.execute(f"CREATE SCHEMA IF NOT EXISTS {config.DB_SCHEMA}")
             cur.execute(f"SET search_path TO {config.DB_SCHEMA}, public")
             cur.execute(_TABLES.format(pk="SERIAL PRIMARY KEY"))
+            for mig in _MIGRATIONS:
+                # в Postgres поддерживается IF NOT EXISTS
+                cur.execute(mig.replace("ADD COLUMN", "ADD COLUMN IF NOT EXISTS"))
         conn.commit()
     finally:
         conn.close()
@@ -161,6 +172,11 @@ def _sqlite_init():
     os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     with _sqlite_conn() as c:
         c.executescript(_TABLES.format(pk="INTEGER PRIMARY KEY AUTOINCREMENT"))
+        for mig in _MIGRATIONS:  # SQLite не знает IF NOT EXISTS для колонок
+            try:
+                c.execute(mig)
+            except sqlite3.OperationalError:
+                pass  # колонка уже есть
 
 
 # ---------------- Публичный API ----------------

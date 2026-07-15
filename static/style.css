@@ -80,6 +80,10 @@ table.grid{width:100%;border-collapse:collapse;background:var(--panel);
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
 .verdict-big{display:inline-block;padding:6px 14px;border-radius:8px;font-weight:700;font-size:16px;margin-bottom:12px}
+.mileagebox{display:flex;align-items:baseline;gap:10px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:12px}
+.mileagebox .mi-label{color:var(--muted);font-size:12.5px}
+.mileagebox .mi-val{font-size:20px;font-weight:700;margin-left:auto}
 
 table.kv{width:100%;border-collapse:collapse}
 .kv td{padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top}
