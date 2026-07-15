@@ -19,6 +19,11 @@ _client = None
 # Итог последнего прогона оценки — чтобы ошибки фона были видны в UI/через /status.
 LAST_RUN = {"valued": 0, "errors": 0, "last_error": None, "at": None}
 
+# Живой прогресс текущего прогона оценки (для индикатора на дашборде).
+PROGRESS = {"running": False, "total": 0, "done": 0, "errors": 0,
+            "current": None, "current_vin": None,
+            "started_at": None, "finished_at": None}
+
 
 def client():
     global _client
@@ -178,17 +183,30 @@ def valuate_missing(limit=None):
         "SELECT l.* FROM listings l LEFT JOIN valuations v ON v.vin=l.vin "
         "WHERE l.status='active' AND v.vin IS NULL")
     done, errors, last_error = 0, 0, None
-    for row in rows:
-        try:
-            v = valuate_row(row)
-        except Exception as e:  # noqa: BLE001
-            errors += 1
-            last_error = str(e)
-            continue
-        save_valuation(row["vin"], input_hash(row), v)
-        done += 1
-        if limit and done >= limit:
-            break
+    PROGRESS.update(running=True, total=len(rows), done=0, errors=0,
+                    current=None, current_vin=None,
+                    started_at=datetime.utcnow().isoformat(), finished_at=None)
+    try:
+        for row in rows:
+            title = " · ".join(str(x) for x in
+                               [row.get("make_raw") or row.get("brand"),
+                                row.get("year"), row.get("region")] if x)
+            PROGRESS.update(current=title, current_vin=row["vin"])
+            try:
+                v = valuate_row(row)
+            except Exception as e:  # noqa: BLE001
+                errors += 1
+                last_error = str(e)
+                PROGRESS["errors"] = errors
+                continue
+            save_valuation(row["vin"], input_hash(row), v)
+            done += 1
+            PROGRESS["done"] = done
+            if limit and done >= limit:
+                break
+    finally:
+        PROGRESS.update(running=False, current=None, current_vin=None,
+                        finished_at=datetime.utcnow().isoformat())
     LAST_RUN.update(valued=done, errors=errors, last_error=last_error,
                     at=datetime.utcnow().isoformat())
     return {"valued": done, "errors": errors, "last_error": last_error}

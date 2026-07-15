@@ -140,6 +140,13 @@ def changes():
     return render_template("changes.html", rows=rows)
 
 
+@app.route("/progress")
+def progress():
+    """Живой прогресс текущего прогона оценки — для индикатора на дашборде."""
+    from flask import jsonify
+    return jsonify(valuation.PROGRESS)
+
+
 @app.route("/status")
 def status():
     """Диагностика: бэкенд БД, счётчики, настроен ли Polza, итог последней оценки."""

@@ -7,6 +7,8 @@
   <div class="flash" style="border-left-color:var(--warn)">⚠️ Последний прогон оценки: обсчитано {{ val_run.valued }}, ошибок {{ val_run.errors }}. Последняя ошибка: {{ val_run.last_error }}</div>
 {% endif %}
 
+<div id="valprogress" class="progbox" style="display:none"></div>
+
 <div class="stats">
   <div class="stat"><div class="num">{{ stats.count }}</div><div class="lbl">машин в выборке</div></div>
   <div class="stat"><div class="num">{{ stats.valued }}</div><div class="lbl">оценено</div></div>
@@ -89,4 +91,30 @@
 </table>
 
 {% if last_snap %}<p class="muted small">Последний забор таблицы: {{ last_snap.fetched_at|dt }} · строк: {{ last_snap.row_count }}</p>{% endif %}
+
+<script>
+(function () {
+  var box = document.getElementById('valprogress');
+  var wasRunning = false;
+  function tick() {
+    fetch('/progress').then(function (r) { return r.json(); }).then(function (p) {
+      if (p.running) {
+        wasRunning = true;
+        var pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+        box.style.display = 'block';
+        box.innerHTML =
+          '<div class="prog-head">⏳ Идёт оценка: <b>' + p.done + ' из ' + p.total + '</b>' +
+          (p.errors ? ' · ошибок ' + p.errors : '') + '</div>' +
+          '<div class="prog-cur">сейчас: ' + (p.current ? p.current : '—') + '</div>' +
+          '<div class="prog-track"><div class="prog-fill" style="width:' + pct + '%"></div></div>';
+      } else {
+        box.style.display = 'none';
+        if (wasRunning) { wasRunning = false; location.reload(); } // прогон закончился — покажем свежие оценки
+      }
+    }).catch(function () {});
+  }
+  tick();
+  setInterval(tick, 3000);
+})();
+</script>
 {% endblock %}
