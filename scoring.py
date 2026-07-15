@@ -191,10 +191,22 @@ def seller_analysis(row, val, storage_cost_per_day):
     return out
 
 
+def _avito_search_url(title):
+    from urllib.parse import quote_plus
+    return "https://www.avito.ru/all/avtomobili?q=" + quote_plus(title or "")
+
+
 def parse_comparables(val):
+    """Возвращает список аналогов, у каждого гарантированно есть 'link':
+    реальная ссылка из модели, либо ссылка на поиск Avito по названию."""
     if not val or not val.get("comparables"):
         return []
     try:
-        return json.loads(val["comparables"])
+        items = json.loads(val["comparables"])
     except (ValueError, TypeError):
         return []
+    for c in items:
+        url = (c.get("url") or "").strip() if isinstance(c, dict) else ""
+        c["link"] = url if url.startswith("http") else _avito_search_url(c.get("title", ""))
+        c["is_search"] = not url.startswith("http")
+    return items

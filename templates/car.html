@@ -60,7 +60,10 @@
     {% if row.comparables %}
       <h3>Найденные аналоги</h3>
       <ul class="comps">
-        {% for c in row.comparables %}<li>{{ c.title }} — <b>{{ c.price|money }}</b> <span class="muted small">{{ c.source }}</span></li>{% endfor %}
+        {% for c in row.comparables %}
+          <li><a href="{{ c.link }}" target="_blank" rel="noopener">{{ c.title }}</a> — <b>{{ c.price|money }}</b>
+            <span class="muted small">{{ c.source }}{% if c.is_search %} · поиск{% endif %}</span></li>
+        {% endfor %}
       </ul>
     {% endif %}
   </section>

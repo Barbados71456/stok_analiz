@@ -47,8 +47,13 @@ POLZA_BASE_URL = os.environ.get("POLZA_BASE_URL", "https://polza.ai/api/v1")
 POLZA_MODEL = os.environ.get("POLZA_MODEL", "anthropic/claude-sonnet-5")
 
 # --- Экономика (для рекомендаций продавцу) ---
-# Стоимость хранения одной машины в сутки, руб. Настраивается в UI и через env.
-STORAGE_COST_PER_DAY = float(os.environ.get("STORAGE_COST_PER_DAY", "500"))
+# Стоимость хранения одной машины. Удобнее задавать в месяц (по умолчанию 5000 ₽/мес);
+# внутри всё считается в сутки. STORAGE_COST_PER_DAY, если задан, имеет приоритет.
+STORAGE_COST_PER_MONTH = float(os.environ.get("STORAGE_COST_PER_MONTH", "5000"))
+if os.environ.get("STORAGE_COST_PER_DAY"):
+    STORAGE_COST_PER_DAY = float(os.environ["STORAGE_COST_PER_DAY"])
+else:
+    STORAGE_COST_PER_DAY = round(STORAGE_COST_PER_MONTH / 30, 2)
 
 # --- Планировщик ---
 # Как часто автоматически опрашивать таблицу и обновлять анализ, в часах.

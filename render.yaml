@@ -26,8 +26,8 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       # --- Логика ---
-      - key: STORAGE_COST_PER_DAY
-        value: "500"
+      - key: STORAGE_COST_PER_MONTH
+        value: "5000"          # ~167 ₽/сут; можно переопределить STORAGE_COST_PER_DAY
       - key: POLL_INTERVAL_HOURS
         value: "1"           # опрос таблицы и фиксация изменений раз в час
       - key: AUTO_VALUATE
